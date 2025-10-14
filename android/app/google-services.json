@@ -1,0 +1,76 @@
+{
+  "project_info": {
+    "project_number": "1027541737617",
+    "project_id": "gemini-5fa54",
+    "storage_bucket": "gemini-5fa54.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1027541737617:android:17064ba4a5c8e9c684df30",
+        "android_client_info": {
+          "package_name": "com.example.gmail_enchancer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1027541737617-8i5ien2ironr1qnhvqpdcaihn3unfict.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfBkrAcGPYAW-It0Df2HRxrlahH2eBelE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1027541737617-8i5ien2ironr1qnhvqpdcaihn3unfict.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1027541737617:android:830943e28cf4070084df30",
+        "android_client_info": {
+          "package_name": "com.example.gmail_enhancer_final"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1027541737617-ie6d5ijmne3l1h4fdvcsr5lu61614egp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gmail_enhancer_final",
+            "certificate_hash": "cec9ef7aa9a55c9e3c5203be9b966f02b8ef2863"
+          }
+        },
+        {
+          "client_id": "1027541737617-8i5ien2ironr1qnhvqpdcaihn3unfict.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBfBkrAcGPYAW-It0Df2HRxrlahH2eBelE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1027541737617-8i5ien2ironr1qnhvqpdcaihn3unfict.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

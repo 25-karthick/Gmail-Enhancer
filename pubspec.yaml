@@ -1,0 +1,36 @@
+name: gmail_enhancer_final
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  google_sign_in: ^6.1.0  # Stable version compatible with Firebase Auth 4.x
+  firebase_auth: ^5.7.0  # Latest stable in 4.x series
+  firebase_core: ^3.10.0  # Compatible with Firebase Auth 4.x
+  googleapis: ^11.3.0     # Stable version
+  googleapis_auth: ^1.3.0 # Compatible with googleapis 11.x
+  http: ^1.1.0            # Stable version
+  provider: ^6.1.0        # Stable version
+  flutter_dotenv: ^5.2.0  # Stable version
+  shared_preferences: ^2.2.2  # Stable version
+  cached_network_image: ^3.3.0  # Stable version
+  intl: ^0.18.1           # Stable version
+  firebase_auth_web: ^5.10.0
+  extension_google_sign_in_as_googleapis_auth: ^2.0.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0   # Stable version compatible with Flutter 3.x
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/.env
