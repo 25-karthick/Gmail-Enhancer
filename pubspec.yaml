@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  html_unescape: ^2.0.0
   cupertino_icons: ^1.0.8
   google_sign_in: ^6.1.0  # Stable version compatible with Firebase Auth 4.x
   firebase_auth: ^5.7.0  # Latest stable in 4.x series

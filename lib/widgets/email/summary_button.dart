@@ -25,11 +25,37 @@ class _SummaryButtonState extends State<SummaryButton> {
       final emailProvider = Provider.of<EmailProvider>(context, listen: false);
       final gmailService = GmailService();
 
-      // Fetch full email body if not already available
-      final emailBody = await gmailService.getEmailBody(widget.email.id);
+      // Use full email content for summarization
+      String emailContent;
+
+      if (widget.email.fullBody != null && widget.email.fullBody!.isNotEmpty) {
+        emailContent = widget.email.fullBody!;
+      } else {
+        // Fetch full email body if not available
+        emailContent = await gmailService.getEmailBody(widget.email.id);
+      }
+
+      // Include subject and sender in the content for better context
+      final fullContent = '''
+Subject: ${widget.email.subject}
+From: ${widget.email.sender} <${widget.email.senderEmail}>
+Date: ${widget.email.date}
+CC: ${widget.email.cc.join(', ')}
+BCC: ${widget.email.bcc.join(', ')}
+
+Content:
+$emailContent
+''';
 
       // Generate summary
-      await emailProvider.summarizeEmail(widget.email.id, emailBody);
+      await emailProvider.summarizeEmail(widget.email.id, fullContent);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Summary generated successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
