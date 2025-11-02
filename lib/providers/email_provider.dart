@@ -54,62 +54,58 @@ class EmailProvider with ChangeNotifier {
   }
 
   void _categorizeEmails() {
-    // This method is missing in the snippets, but assumed to exist
-    // It would update email.category based on some logic (e.g., sender/subject)
-    // Placeholder implementation:
-    // This is where you would call your categorization logic if you had one.
-    // For now, it just ensures all emails are marked as 'General' if category is null.
     _emails = _emails.map((email) {
-      return email.category.isEmpty ? email.copyWith(category: 'General') : email;
+      // Use the manager you built to get the category name
+      final categoryName = CategoryManager.categorizeEmail(email);
+      // Use the copyWith method to create an updated email object
+      return email.copyWith(category: categoryName);
     }).toList();
   }
 
   // **THE CORRECTED METHOD IS BELOW**
-  Future<void> summarizeEmail(String emailId, String emailContent) async {
+  Future<void> summarizeEmail(String emailId) async {
     _summaryLoadingStates[emailId] = true;
     notifyListeners();
 
     try {
-      // 1. Find the email in your list to get its subject and body
-      final index = _emails.indexWhere((email) => email.id == emailId);
-      if (index == -1) {
-        throw Exception('Email $emailId not found.');
+      final index = _emails.indexWhere((e) => e.id == emailId);
+      if (index == -1) throw Exception('Email not found.');
+
+      var email = _emails[index];
+
+      // Fetch full content ONLY if it's missing. This is efficient.
+      if (email.fullBody == null || email.fullBody!.isEmpty) {
+        final completeEmail = await _gmailService.getCompleteEmail(emailId);
+        if (completeEmail != null) {
+          email = completeEmail; // Update our local copy with the full body
+        }
       }
-      final email = _emails[index];
 
-      // Use the body from the Email Model (which likely handles full vs snippet)
-      final contentToSummarize = email.displayBody; // Assuming you have a getter for this
-
-      if (contentToSummarize.isEmpty || contentToSummarize == 'No content available') {
-        throw Exception('No valid content to summarize.');
+      if (!email.hasValidContent) {
+        throw Exception('Email has no content to summarize.');
       }
 
-      // 2. Call the service with the REAL data
       final summary = await _geminiService.summarizeEmail(
         subject: email.subject,
-        emailContent: contentToSummarize,
+        emailContent: email.displayBody, // Use the smart getter from your model
       );
 
-      // 3. Update the email in the list
-      _emails[index] = _emails[index].copyWith(summary: summary);
-      _applyFilters(); // This will update _filteredEmails and notify listeners
+      // Update the master list and apply filters
+      _emails[index] = email.copyWith(summary: summary);
+      _applyFilters();
 
     } catch (e) {
       print('Error summarizing email $emailId: $e');
-
-      // Set a failed summary message so the user knows it failed
-      final index = _emails.indexWhere((email) => email.id == emailId);
+      final index = _emails.indexWhere((e) => e.id == emailId);
       if (index != -1) {
         _emails[index] = _emails[index].copyWith(summary: 'Summary failed to load.');
-        _applyFilters();
+        _applyFilters(); // Ensure UI updates with the error message
       }
-
     } finally {
       _summaryLoadingStates[emailId] = false;
-      notifyListeners(); // Notify again to stop the loading indicator
+      notifyListeners();
     }
   }
-  // **END OF CORRECTED METHOD**
 
 
   bool isSummaryLoading(String emailId) => _summaryLoadingStates[emailId] == true;

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:webview_flutter/webview_flutter.dart'; // 1. Import the webview package
+import 'dart:convert'; // Import for base64 encoding
 import '../models/email_model.dart';
 import '../widgets/email/summary_button.dart';
-import '../providers/email_provider.dart';
+import '../providers/email_provider.dart' hide Email;
 import '../services/gmail_service.dart';
 
 class EmailDetailScreen extends StatefulWidget {
@@ -19,22 +21,46 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
   late Email _currentEmail;
   bool _isLoadingFullContent = false;
 
+  // 2. Create a controller for the WebView
+  late final WebViewController _webViewController;
+
   @override
   void initState() {
     super.initState();
     _currentEmail = widget.email;
+
+    // 3. Initialize the WebView controller
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted); // Enable JavaScript
+
     // Load full content if not already available
     if (_currentEmail.fullBody == null || _currentEmail.fullBody!.isEmpty) {
       _loadFullContent();
+    } else {
+      _loadHtmlContent(); // Load the HTML we already have
     }
+  }
+
+  // 4. Create a function to load the HTML into the WebView
+  void _loadHtmlContent() {
+    // We get the full, raw HTML body from our email model.
+    // The email model must be configured to extract this.
+    final htmlContent = _currentEmail.fullBody ?? '<body>No content available</body>';
+
+    // To display local HTML, we encode it in base64 and use a data URI.
+    // This is the standard and most reliable way.
+    _webViewController.loadRequest(
+      Uri.dataFromString(
+        htmlContent,
+        mimeType: 'text/html',
+        encoding: Encoding.getByName('utf-8'),
+      ),
+    );
   }
 
   Future<void> _loadFullContent() async {
     if (_isLoadingFullContent) return;
-
-    setState(() {
-      _isLoadingFullContent = true;
-    });
+    setState(() => _isLoadingFullContent = true);
 
     try {
       final gmailService = GmailService();
@@ -44,20 +70,19 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
         setState(() {
           _currentEmail = completeEmail;
         });
+        _loadHtmlContent(); // Once content is loaded, put it in the WebView
       }
     } catch (e) {
       print('Error loading full content: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
+        const SnackBar(
           content: Text('Failed to load full email content'),
           backgroundColor: Colors.red,
         ),
       );
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoadingFullContent = false;
-        });
+        setState(() => _isLoadingFullContent = false);
       }
     }
   }
@@ -73,66 +98,44 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
       ),
       body: _isLoadingFullContent
           ? const Center(child: CircularProgressIndicator())
-          : _buildEmailContent(),
-    );
-  }
-
-  Widget _buildEmailContent() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
+          : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Subject
-          Text(
-            _currentEmail.subject,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+          // Header section with sender, subject, etc.
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _currentEmail.subject,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildSenderSection(),
+                const SizedBox(height: 16),
+                Text(
+                  'Date: ${_formatDate(_currentEmail.date)}',
+                  style: const TextStyle(color: Colors.grey, fontSize: 14),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 20),
-
-          // Sender Information
-          _buildSenderSection(),
-          const SizedBox(height: 16),
-
-          // Date
-          Text(
-            'Date: ${_formatDate(_currentEmail.date)}',
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
+          const Divider(height: 1),
+          // 5. The WebView to render the HTML body
+          Expanded(
+            child: WebViewWidget(controller: _webViewController),
           ),
-          const SizedBox(height: 16),
-
-          // CC Recipients
-          if (_currentEmail.cc.isNotEmpty) ...[
-            _buildRecipientSection('CC:', _currentEmail.cc),
-            const SizedBox(height: 12),
-          ],
-
-          // BCC Recipients
-          if (_currentEmail.bcc.isNotEmpty) ...[
-            _buildRecipientSection('BCC:', _currentEmail.bcc),
-            const SizedBox(height: 12),
-          ],
-
-          // Category
-          _buildCategoryChip(),
-          const SizedBox(height: 20),
-
-          // AI Summary Section
-          if (_currentEmail.summary != null && _currentEmail.summary!.isNotEmpty) ...[
-            _buildSummarySection(),
-            const SizedBox(height: 20),
-          ],
-
-          // Email Body
-          _buildEmailBodySection(),
         ],
       ),
     );
   }
 
+  // --- Helper widgets for sender, date, etc. remain the same ---
   Widget _buildSenderSection() {
+    // (Your existing code for this widget)
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -175,137 +178,8 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
     );
   }
 
-  Widget _buildRecipientSection(String title, List<String> recipients) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.grey,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Wrap(
-          spacing: 8,
-          children: recipients.map((email) => Chip(
-            label: Text(
-              email,
-              style: const TextStyle(fontSize: 12),
-            ),
-            visualDensity: VisualDensity.compact,
-          )).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildCategoryChip() {
-    return Chip(
-      label: Text(
-        _currentEmail.category,
-        style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          color: Colors.white,
-        ),
-      ),
-      backgroundColor: _getCategoryColor(_currentEmail.category),
-    );
-  }
-
-  Widget _buildSummarySection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.auto_awesome, color: Colors.blue, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'AI Summary',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.blue,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _currentEmail.summary!,
-            style: const TextStyle(
-              color: Colors.blue,
-              fontSize: 14,
-              height: 1.4,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEmailBodySection() {
-    final bodyContent = _currentEmail.fullBody ?? _currentEmail.body ?? _currentEmail.snippet;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Email Content:',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade50,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: SelectableText(
-            bodyContent,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.5,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Color _getCategoryColor(String category) {
-    final colors = {
-      'Jobs': Colors.green,
-      'Internships': Colors.orange,
-      'OTP/Security': Colors.red,
-      'Promotions': Colors.purple,
-      'Social': Colors.blue,
-      'Updates': Colors.teal,
-      'Google': Colors.blue.shade700,
-      'Microsoft': Colors.blue.shade500,
-      'IBM': Colors.blue.shade900,
-      'TCS': Colors.blue.shade800,
-      'General': Colors.grey,
-    };
-    return colors[category] ?? Colors.grey;
-  }
-
   String _formatDate(DateTime date) {
+    // (Your existing code for this function)
     final now = DateTime.now();
     final difference = now.difference(date);
 

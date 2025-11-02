@@ -17,55 +17,11 @@ class _SummaryButtonState extends State<SummaryButton> {
   bool _isLoading = false;
 
   Future<void> _generateSummary() async {
-    if (_isLoading) return;
+    // No need for a separate _isLoading state here, the provider handles it
+    final emailProvider = Provider.of<EmailProvider>(context, listen: false);
 
-    setState(() => _isLoading = true);
-
-    try {
-      final emailProvider = Provider.of<EmailProvider>(context, listen: false);
-      final gmailService = GmailService();
-
-      // Use full email content for summarization
-      String emailContent;
-
-      if (widget.email.fullBody != null && widget.email.fullBody!.isNotEmpty) {
-        emailContent = widget.email.fullBody!;
-      } else {
-        // Fetch full email body if not available
-        emailContent = await gmailService.getEmailBody(widget.email.id);
-      }
-
-      // Include subject and sender in the content for better context
-      final fullContent = '''
-Subject: ${widget.email.subject}
-From: ${widget.email.sender} <${widget.email.senderEmail}>
-Date: ${widget.email.date}
-CC: ${widget.email.cc.join(', ')}
-BCC: ${widget.email.bcc.join(', ')}
-
-Content:
-$emailContent
-''';
-
-      // Generate summary
-      await emailProvider.summarizeEmail(widget.email.id, fullContent);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Summary generated successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to generate summary: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    // The button's only job is to call the provider.
+    await emailProvider.summarizeEmail(widget.email.id);
   }
 
   @override
@@ -74,7 +30,7 @@ $emailContent
     final isSummaryLoading = emailProvider.isSummaryLoading(widget.email.id);
 
     return ElevatedButton.icon(
-      onPressed: (widget.email.summary != null || _isLoading || isSummaryLoading)
+      onPressed: (widget.email.summary != null || emailProvider.isSummaryLoading(widget.email.id))
           ? null
           : _generateSummary,
       icon: _isLoading || isSummaryLoading
