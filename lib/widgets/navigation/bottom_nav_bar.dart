@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../providers/email_provider.dart';
+import '../../../screens/reminders_screen.dart'; // ✅ Import your reminder screen
 
 class BottomNavBar extends StatefulWidget {
-  final Function(int) onTabSelected;
+  final Function(int)? onTabSelected;
 
   const BottomNavBar({
     super.key,
-    required this.onTabSelected,
+    this.onTabSelected,
   });
 
   @override
@@ -21,13 +22,26 @@ class _BottomNavBarState extends State<BottomNavBar> {
     setState(() {
       _selectedIndex = index;
     });
-    widget.onTabSelected(index);
+
+    if (widget.onTabSelected != null) {
+      widget.onTabSelected!(index);
+    }
+
+    // ✅ When Reminder tab is tapped, navigate to the RemindersScreen
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const RemindersScreen()),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final emailProvider = Provider.of<EmailProvider>(context);
-    final unreadCount = emailProvider.allEmails.where((email) => !email.isRead).length;
+    final unreadCount = emailProvider.allEmails
+        .where((email) => !email.isRead)
+        .length;
 
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
@@ -71,33 +85,33 @@ class _BottomNavBarState extends State<BottomNavBar> {
             ],
           ),
           label: 'Inbox',
-          backgroundColor: Colors.transparent,
         ),
 
-        // Starred/Important Tab
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.star_border),
-          activeIcon: const Icon(Icons.star),
+        // Important Tab
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.star_border),
+          activeIcon: Icon(Icons.star),
           label: 'Important',
         ),
 
-        // Sent Tab
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.send),
-          label: 'Sent',
+        // ✅ Reminder Tab (was Sent)
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.alarm),
+          activeIcon: Icon(Icons.alarm_on),
+          label: 'Reminder',
         ),
 
         // Categories Tab
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.category_outlined),
-          activeIcon: const Icon(Icons.category),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.category_outlined),
+          activeIcon: Icon(Icons.category),
           label: 'Categories',
         ),
 
         // Settings Tab
-        BottomNavigationBarItem(
-          icon: const Icon(Icons.settings_outlined),
-          activeIcon: const Icon(Icons.settings),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.settings_outlined),
+          activeIcon: Icon(Icons.settings),
           label: 'Settings',
         ),
       ],

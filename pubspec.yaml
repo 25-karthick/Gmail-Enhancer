@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   webview_flutter: ^4.7.0
+  timezone: ^0.9.4
   html_unescape: ^2.0.0
   cupertino_icons: ^1.0.8
   google_sign_in: ^6.1.0  # Stable version compatible with Firebase Auth 4.x
@@ -21,11 +22,12 @@ dependencies:
   http: ^1.1.0            # Stable version
   provider: ^6.1.0        # Stable version
   flutter_dotenv: ^5.2.0  # Stable version
-  shared_preferences: ^2.2.2  # Stable version
+  shared_preferences: ^2.3.3  # Stable version
   cached_network_image: ^3.3.0  # Stable version
   intl: ^0.18.1           # Stable version
   firebase_auth_web: ^5.10.0
   extension_google_sign_in_as_googleapis_auth: ^2.0.0
+  flutter_local_notifications: ^17.2.3
 dev_dependencies:
   flutter_test:
     sdk: flutter

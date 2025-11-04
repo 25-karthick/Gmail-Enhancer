@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:webview_flutter/webview_flutter.dart'; // 1. Import the webview package
-import 'dart:convert'; // Import for base64 encoding
+import 'package:webview_flutter/webview_flutter.dart';
+import 'dart:convert';
 import '../models/email_model.dart';
 import '../widgets/email/summary_button.dart';
-import '../providers/email_provider.dart' hide Email;
 import '../services/gmail_service.dart';
 
 class EmailDetailScreen extends StatefulWidget {
@@ -20,35 +18,35 @@ class EmailDetailScreen extends StatefulWidget {
 class _EmailDetailScreenState extends State<EmailDetailScreen> {
   late Email _currentEmail;
   bool _isLoadingFullContent = false;
-
-  // 2. Create a controller for the WebView
   late final WebViewController _webViewController;
+
+  /// Helper getter to implement your idea of hiding the button
+  bool get isSummarizable {
+    return _currentEmail.hasValidContent &&
+        _currentEmail.plainTextBodyForAI.trim().length >= 50 &&
+        _currentEmail.summary == null;
+  }
 
   @override
   void initState() {
     super.initState();
     _currentEmail = widget.email;
 
-    // 3. Initialize the WebView controller
     _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted); // Enable JavaScript
+      ..setJavaScriptMode(JavaScriptMode.unrestricted);
 
-    // Load full content if not already available
-    if (_currentEmail.fullBody == null || _currentEmail.fullBody!.isEmpty) {
+    // 1. Check for the new properties
+    if (_currentEmail.body == null && _currentEmail.htmlBody == null) {
       _loadFullContent();
     } else {
-      _loadHtmlContent(); // Load the HTML we already have
+      _loadHtmlContent();
     }
   }
 
-  // 4. Create a function to load the HTML into the WebView
   void _loadHtmlContent() {
-    // We get the full, raw HTML body from our email model.
-    // The email model must be configured to extract this.
-    final htmlContent = _currentEmail.fullBody ?? '<body>No content available</body>';
+    // 2. ✅ THE FIX: Use the correct getter for the WebView
+    final htmlContent = _currentEmail.displayBodyForWebView;
 
-    // To display local HTML, we encode it in base64 and use a data URI.
-    // This is the standard and most reliable way.
     _webViewController.loadRequest(
       Uri.dataFromString(
         htmlContent,
@@ -70,16 +68,10 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
         setState(() {
           _currentEmail = completeEmail;
         });
-        _loadHtmlContent(); // Once content is loaded, put it in the WebView
+        _loadHtmlContent(); // Now load the full content
       }
     } catch (e) {
       print('Error loading full content: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to load full email content'),
-          backgroundColor: Colors.red,
-        ),
-      );
     } finally {
       if (mounted) {
         setState(() => _isLoadingFullContent = false);
@@ -93,7 +85,12 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
       appBar: AppBar(
         title: const Text('Email Details'),
         actions: [
-          SummaryButton(email: _currentEmail),
+          // 3. ✅ THE FIX: Only show the button if it's summarizable
+          if (isSummarizable)
+            Padding(
+              padding: const EdgeInsets.only(right: 8.0),
+              child: SummaryButton(email: _currentEmail),
+            ),
         ],
       ),
       body: _isLoadingFullContent
@@ -101,7 +98,7 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
           : Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header section with sender, subject, etc.
+          // Header section
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
@@ -124,7 +121,7 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
             ),
           ),
           const Divider(height: 1),
-          // 5. The WebView to render the HTML body
+          // WebView to render the HTML body
           Expanded(
             child: WebViewWidget(controller: _webViewController),
           ),
@@ -133,14 +130,12 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
     );
   }
 
-  // --- Helper widgets for sender, date, etc. remain the same ---
   Widget _buildSenderSection() {
-    // (Your existing code for this widget)
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CircleAvatar(
-          backgroundColor: Colors.blue,
+          backgroundColor: Colors.blue, // You can use CategoryManager here
           child: Text(
             _currentEmail.sender.isNotEmpty
                 ? _currentEmail.sender[0].toUpperCase()
@@ -179,7 +174,6 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
   }
 
   String _formatDate(DateTime date) {
-    // (Your existing code for this function)
     final now = DateTime.now();
     final difference = now.difference(date);
 
@@ -187,10 +181,8 @@ class _EmailDetailScreenState extends State<EmailDetailScreen> {
       return 'Today at ${DateFormat('HH:mm').format(date)}';
     } else if (difference.inDays == 1) {
       return 'Yesterday at ${DateFormat('HH:mm').format(date)}';
-    } else if (difference.inDays < 7) {
-      return '${DateFormat('EEEE').format(date)} at ${DateFormat('HH:mm').format(date)}';
     } else {
-      return DateFormat('MMM dd, yyyy at HH:mm').format(date);
+      return DateFormat('MMM dd, yyyy').format(date);
     }
   }
 }

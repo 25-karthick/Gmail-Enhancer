@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/email_model.dart';
 import '../../../providers/email_provider.dart';
-import '../../../services/gmail_service.dart';
+// No longer need to import GmailService
 
 class SummaryButton extends StatefulWidget {
   final Email email;
@@ -14,26 +14,26 @@ class SummaryButton extends StatefulWidget {
 }
 
 class _SummaryButtonState extends State<SummaryButton> {
-  bool _isLoading = false;
+  // 1. Remove the local _isLoading state.
 
   Future<void> _generateSummary() async {
-    // No need for a separate _isLoading state here, the provider handles it
+    // 2. The button's only job is to call the provider.
     final emailProvider = Provider.of<EmailProvider>(context, listen: false);
-
-    // The button's only job is to call the provider.
     await emailProvider.summarizeEmail(widget.email.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    final emailProvider = Provider.of<EmailProvider>(context);
+    // 3. Use context.watch to get the *live* loading state from the provider
+    final emailProvider = context.watch<EmailProvider>();
     final isSummaryLoading = emailProvider.isSummaryLoading(widget.email.id);
 
     return ElevatedButton.icon(
-      onPressed: (widget.email.summary != null || emailProvider.isSummaryLoading(widget.email.id))
-          ? null
+      // 4. The onPressed check is now much cleaner
+      onPressed: (widget.email.summary != null || isSummaryLoading)
+          ? null // Button is disabled if summary exists OR it's loading
           : _generateSummary,
-      icon: _isLoading || isSummaryLoading
+      icon: isSummaryLoading
           ? const SizedBox(
         width: 16,
         height: 16,

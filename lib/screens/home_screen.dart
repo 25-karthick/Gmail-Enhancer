@@ -5,7 +5,8 @@ import '../widgets/navigation/bottom_nav_bar.dart';
 import '../widgets/email/email_list.dart';
 import '../widgets/common/loading_indicator.dart';
 import '../widgets/common/error_widget.dart';
-import 'settings_screen.dart'; // 1. Import the settings screen
+import 'settings_screen.dart';
+import 'reminders_screen.dart'; // 1. Import the new screen
 
 /// HomeScreen now acts as a container for the different tabs
 class HomeScreen extends StatefulWidget {
@@ -17,10 +18,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentTabIndex = 0;
-
-  // We only need one instance of the search controller
   final _searchController = TextEditingController();
-
   late final List<Widget> _screens;
 
   @override
@@ -28,19 +26,17 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _searchController.addListener(_onSearchChanged);
 
-    // 2. Define the list of screens for our navigation
+    // 2. Define the list of screens
     _screens = [
-      // Pass the *same* controller to each email-related tab
       EmailTabPage(searchController: _searchController), // Index 0: Inbox
       EmailTabPage(searchController: _searchController), // Index 1: Important
       EmailTabPage(searchController: _searchController), // Index 2: Sent
-      EmailTabPage(searchController: _searchController), // Index 3: Categories
-      const SettingsScreen(), // Index 4: Settings
+      const RemindersScreen(),                           // 3. ✅ Index 3: Reminders
+      const SettingsScreen(),                            // 4. Index 4: Settings
     ];
   }
 
   void _onSearchChanged() {
-    // This listener will work regardless of which tab is active
     Provider.of<EmailProvider>(context, listen: false)
         .setSearchQuery(_searchController.text);
   }
@@ -52,8 +48,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onTabSelected(int index) {
-    // Only update the email provider's category if the tab is email-related
-    if (index < 4) {
+    // 5. ✅ Only set category for email-related tabs (index 0, 1, 2)
+    if (index < 3) {
       final emailProvider = Provider.of<EmailProvider>(context, listen: false);
       String category = 'All'; // Default
       switch (index) {
@@ -64,19 +60,16 @@ class _HomeScreenState extends State<HomeScreen> {
           category = 'Jobs'; // As defined in your original logic
           break;
         case 2: // Sent
-        // TODO: Implement 'Sent' logic. For now, defaults to 'All'.
-          category = 'All';
-          break;
-        case 3: // Categories
-        // TODO: Implement 'Categories' logic. For now, defaults to 'All'.
+        // TODO: Implement 'Sent' logic.
           category = 'All';
           break;
       }
-      // Set the category filter
       emailProvider.setCategory(category);
     }
 
-    // Update the UI to show the correct screen
+    // Index 3 (Reminders) and 4 (Settings) are handled by the IndexedStack
+    // and don't require any special logic here.
+
     setState(() {
       _currentTabIndex = index;
     });
@@ -85,14 +78,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // 3. The body is an IndexedStack.
-      // This preserves the state of each tab (like scroll position)
-      // when you switch between them.
       body: IndexedStack(
         index: _currentTabIndex,
         children: _screens,
       ),
-      // The BottomNavBar is the main navigation
       bottomNavigationBar: BottomNavBar(
         onTabSelected: _onTabSelected,
       ),
@@ -100,11 +89,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+
+// --- This EmailTabPage widget remains unchanged ---
+// (Paste your existing EmailTabPage widget code here)
+
 /// A dedicated widget for the Email tabs (Inbox, Important, etc.)
-/// This contains its own Scaffold, AppBar, and FAB, as SettingsScreen has its own.
 class EmailTabPage extends StatelessWidget {
   final TextEditingController searchController;
-
   const EmailTabPage({super.key, required this.searchController});
 
   @override
@@ -122,7 +113,6 @@ class EmailTabPage extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
@@ -137,7 +127,6 @@ class EmailTabPage extends StatelessWidget {
               ),
             ),
           ),
-          // Email List Area
           Expanded(
             child: _buildEmailList(),
           ),
@@ -151,32 +140,26 @@ class EmailTabPage extends StatelessWidget {
     );
   }
 
-  /// Builds the body content based on the EmailProvider's state
   Widget _buildEmailList() {
-    // Use a Consumer here to rebuild *only* this part when emails change
     return Consumer<EmailProvider>(
       builder: (context, emailProvider, child) {
         if (emailProvider.isLoading) {
           return const LoadingIndicator();
         }
-
         if (emailProvider.error != null) {
           return CustomErrorWidget(
             message: emailProvider.error!,
             onRetry: () => emailProvider.refreshEmails(),
           );
         }
-
         if (emailProvider.emails.isEmpty) {
           return _buildEmptyState(emailProvider.selectedCategory);
         }
-
         return EmailList(emails: emailProvider.emails);
       },
     );
   }
 
-  /// Shows a message when no emails are found
   Widget _buildEmptyState(String selectedCategory) {
     final message = selectedCategory == 'All'
         ? 'Your inbox is empty'

@@ -15,14 +15,13 @@ class GeminiService {
       print("🚀 Summarizing with Gemini...");
 
       final prompt = '''
-Please analyze this email and provide a concise 2-3 sentence summary.
+Please analyze this email and provide a concise 1-2 sentence summary if email preview in the following is not available provide the subject in one sentence only provide the summary with no exact words.
 EMAIL SUBJECT: $subject
 EMAIL PREVIEW:
 $truncatedContent
 Provide a summary focusing on:
 1. The main purpose or key message
 2. Any important actions or deadlines
-3. The overall intent
 Summary:
 ''';
 

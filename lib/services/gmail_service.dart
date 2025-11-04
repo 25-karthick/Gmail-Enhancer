@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:async';
 import 'package:googleapis/gmail/v1.dart';
 import '../models/email_model.dart';
 import 'auth_service.dart';
@@ -6,52 +6,52 @@ import 'auth_service.dart';
 class GmailService {
   final AuthService _authService = AuthService();
 
-  /// Fetches emails from Gmail API
+  /// A private helper to get an authenticated Gmail API client.
+  Future<GmailApi> _getGmailApi() async {
+    final authClient = await _authService.getGmailAuthClient();
+    if (authClient == null) {
+      throw Exception('Authentication failed: No authenticated client.');
+    }
+    return GmailApi(authClient);
+  }
+
+  /// Fetches a list of emails from the user's inbox.
+  /// ✅ This version runs all detail requests in parallel for maximum speed.
   Future<List<Email>> fetchEmails({int maxResults = 50, String? pageToken}) async {
     try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
+      final gmail = await _getGmailApi();
 
-      final gmail = GmailApi(authClient);
-
-      // Fetch message list
-      final messages = await gmail.users.messages.list(
+      final messageList = await gmail.users.messages.list(
         'me',
         maxResults: maxResults,
         pageToken: pageToken,
-        q: 'in:inbox', // Only fetch inbox emails
+        q: 'in:inbox',
       );
 
-      if (messages.messages == null) return [];
-
-      final emails = <Email>[];
-      for (final message in messages.messages!) {
-        try {
-          final email = await _fetchEmailDetails(gmail, message.id!);
-          if (email != null) {
-            emails.add(email);
-          }
-        } catch (e) {
-          print('Error fetching email ${message.id}: $e');
-          // Continue with other emails even if one fails
-        }
+      if (messageList.messages == null || messageList.messages!.isEmpty) {
+        return [];
       }
 
-      return emails;
+      // 2. Create a list of future requests
+      final emailFutures = messageList.messages!.map((message) {
+        return _fetchEmailDetails(gmail, message.id!);
+      }).toList();
+
+      // 3. Execute all requests concurrently
+      final resolvedEmails = await Future.wait(emailFutures);
+
+      // 4. Filter out any nulls
+      return resolvedEmails.whereType<Email>().toList();
     } catch (e) {
       print('Gmail Service Error: $e');
       throw Exception('Failed to fetch emails: $e');
     }
   }
 
-  /// Fetches detailed information for a specific email
+  /// Fetches detailed information for a single email.
   Future<Email?> _fetchEmailDetails(GmailApi gmail, String messageId) async {
     try {
-      final message = await gmail.users.messages.get(
-          'me',
-          messageId,
-          format: 'full'
-      );
+      final message = await gmail.users.messages.get('me', messageId, format: 'full');
       return Email.fromGmailApi(message);
     } catch (e) {
       print('Error fetching email details for $messageId: $e');
@@ -59,245 +59,40 @@ class GmailService {
     }
   }
 
-  /// Fetches the complete email body with full details
-  Future<String> getEmailBody(String messageId) async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-      final message = await gmail.users.messages.get(
-          'me',
-          messageId,
-          format: 'full'
-      );
-
-      // Use the Email model's body extraction
-      return Email.fromGmailApi(message).displayBody;
-    } catch (e) {
-      print('Error fetching email body for $messageId: $e');
-      throw Exception('Failed to fetch email body: $e');
-    }
-  }
-
-  /// Enhanced method to get complete email with all details
+  /// Fetches a single, complete email object.
   Future<Email?> getCompleteEmail(String messageId) async {
     try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-      final message = await gmail.users.messages.get(
-          'me',
-          messageId,
-          format: 'full'
-      );
-      return Email.fromGmailApi(message);
+      final gmail = await _getGmailApi();
+      return await _fetchEmailDetails(gmail, messageId);
     } catch (e) {
       print('Error fetching complete email for $messageId: $e');
       return null;
     }
   }
 
-  /// Fetches emails by label/category
-  Future<List<Email>> fetchEmailsByLabel(String label, {int maxResults = 50}) async {
+  /// A generic method to modify an email's labels.
+  Future<void> _modifyEmailLabels(String messageId, List<String>? addLabelIds, List<String>? removeLabelIds) async {
     try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-      final messages = await gmail.users.messages.list(
+      final gmail = await _getGmailApi();
+      await gmail.users.messages.modify(
+        ModifyMessageRequest(
+          addLabelIds: addLabelIds,
+          removeLabelIds: removeLabelIds,
+        ),
         'me',
-        maxResults: maxResults,
-        q: 'label:$label',
+        messageId,
       );
-
-      if (messages.messages == null) return [];
-
-      final emails = <Email>[];
-      for (final message in messages.messages!) {
-        try {
-          final email = await _fetchEmailDetails(gmail, message.id!);
-          if (email != null) {
-            emails.add(email);
-          }
-        } catch (e) {
-          print('Error fetching email ${message.id}: $e');
-        }
-      }
-
-      return emails;
     } catch (e) {
-      print('Gmail Service Error for label $label: $e');
-      throw Exception('Failed to fetch emails by label: $e');
+      print('Error modifying labels for email $messageId: $e');
+      throw Exception('Failed to modify email labels.');
     }
   }
 
-  /// Marks an email as read
   Future<void> markAsRead(String messageId) async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-
-      await gmail.users.messages.modify(
-        ModifyMessageRequest(
-          removeLabelIds: ['UNREAD'],
-        ),
-        'me',
-        messageId,
-      );
-    } catch (e) {
-      print('Error marking email as read: $e');
-      throw Exception('Failed to mark email as read');
-    }
+    await _modifyEmailLabels(messageId, null, ['UNREAD']);
   }
 
-  /// Marks an email as unread
   Future<void> markAsUnread(String messageId) async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-
-      await gmail.users.messages.modify(
-        ModifyMessageRequest(
-          addLabelIds: ['UNREAD'],
-        ),
-        'me',
-        messageId,
-      );
-    } catch (e) {
-      print('Error marking email as unread: $e');
-      throw Exception('Failed to mark email as unread');
-    }
-  }
-
-  /// Searches emails with a query
-  Future<List<Email>> searchEmails(String query, {int maxResults = 50}) async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-      final messages = await gmail.users.messages.list(
-        'me',
-        maxResults: maxResults,
-        q: query,
-      );
-
-      if (messages.messages == null) return [];
-
-      final emails = <Email>[];
-      for (final message in messages.messages!) {
-        try {
-          final email = await _fetchEmailDetails(gmail, message.id!);
-          if (email != null) {
-            emails.add(email);
-          }
-        } catch (e) {
-          print('Error fetching email ${message.id}: $e');
-        }
-      }
-
-      return emails;
-    } catch (e) {
-      print('Gmail Service Error for search "$query": $e');
-      throw Exception('Failed to search emails: $e');
-    }
-  }
-
-  /// Gets email statistics
-  Future<Map<String, dynamic>> getEmailStats() async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-
-      // Get profile info
-      final profile = await gmail.users.getProfile('me');
-
-      // Get some basic stats
-      final messages = await gmail.users.messages.list(
-        'me',
-        maxResults: 1,
-      );
-
-      return {
-        'emailAddress': profile.emailAddress,
-        'messagesTotal': profile.messagesTotal ?? 0,
-        'threadsTotal': profile.threadsTotal ?? 0,
-        'historyId': profile.historyId ?? 0,
-        'recentMessagesCount': messages.messages?.length ?? 0,
-      };
-    } catch (e) {
-      print('Error fetching email stats: $e');
-      throw Exception('Failed to fetch email statistics');
-    }
-  }
-
-  /// Fetches attachments for an email
-  Future<List<Map<String, dynamic>>> getAttachments(String messageId) async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-      final message = await gmail.users.messages.get('me', messageId, format: 'full');
-
-      final attachments = <Map<String, dynamic>>[];
-
-      void extractAttachments(MessagePart? part) {
-        if (part == null) return;
-
-        // Check if this part is an attachment
-        if (part.filename != null && part.filename!.isNotEmpty && part.body?.attachmentId != null) {
-          attachments.add({
-            'id': part.body!.attachmentId,
-            'filename': part.filename,
-            'mimeType': part.mimeType,
-            'size': part.body!.size,
-          });
-        }
-
-        // Recursively check subparts
-        if (part.parts != null) {
-          for (final subPart in part.parts!) {
-            extractAttachments(subPart);
-          }
-        }
-      }
-
-      extractAttachments(message.payload);
-      return attachments;
-    } catch (e) {
-      print('Error fetching attachments for $messageId: $e');
-      return [];
-    }
-  }
-
-  /// Downloads a specific attachment
-  Future<List<int>> downloadAttachment(String messageId, String attachmentId) async {
-    try {
-      final authClient = await _authService.getGmailAuthClient();
-      if (authClient == null) throw Exception('Not authenticated');
-
-      final gmail = GmailApi(authClient);
-      final attachment = await gmail.users.messages.attachments.get('me', messageId, attachmentId);
-
-      if (attachment.data != null) {
-        // Decode base64 attachment data
-        final decodedData = base64.decode(attachment.data!);
-        return decodedData;
-      }
-
-      throw Exception('No attachment data found');
-    } catch (e) {
-      print('Error downloading attachment: $e');
-      throw Exception('Failed to download attachment: $e');
-    }
+    await _modifyEmailLabels(messageId, ['UNREAD'], null);
   }
 }
