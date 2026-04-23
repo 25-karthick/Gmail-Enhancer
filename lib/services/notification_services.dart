@@ -3,21 +3,28 @@ import 'dart:io';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
+import 'package:flutter_timezone/flutter_timezone.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notifications =
-  FlutterLocalNotificationsPlugin();
+      FlutterLocalNotificationsPlugin();
 
   static const String _channelId = 'reminder_channel';
   static const String _channelName = 'Reminders';
   static const String _channelDescription = 'Email reminder notifications';
 
   static Future<void> initialize() async {
-    // Initialize time zones
+    // Initialize time zones and set local timezone accurately
     tz.initializeTimeZones();
+    try {
+      final currentTimeZone = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(currentTimeZone.identifier));
+    } catch (e) {
+      print('⚠️ Fallback to default timezone: $e');
+    }
 
     const AndroidInitializationSettings androidSettings =
-    AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@mipmap/ic_launcher');
 
     const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -26,7 +33,7 @@ class NotificationService {
     );
 
     const InitializationSettings settings =
-    InitializationSettings(android: androidSettings, iOS: iosSettings);
+        InitializationSettings(android: androidSettings, iOS: iosSettings);
 
     await _notifications.initialize(
       settings,
@@ -39,7 +46,7 @@ class NotificationService {
     if (Platform.isAndroid) {
       final androidPlugin = _notifications
           .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>();
+              AndroidFlutterLocalNotificationsPlugin>();
 
       // Create a high-importance channel
       const AndroidNotificationChannel channel = AndroidNotificationChannel(
@@ -52,8 +59,9 @@ class NotificationService {
 
       await androidPlugin?.createNotificationChannel(channel);
 
-      // ✅ Android 13+ Permission
+      // ✅ Android 13+ Permissions including Exact Alarms
       await androidPlugin?.requestNotificationsPermission();
+      await androidPlugin?.requestExactAlarmsPermission();
     }
 
     print('✅ NotificationService initialized successfully');
@@ -65,8 +73,6 @@ class NotificationService {
     required String body,
     required DateTime scheduledTime,
   }) async {
-    tz.initializeTimeZones();
-
     final now = tz.TZDateTime.now(tz.local);
     final tzScheduled = tz.TZDateTime.from(scheduledTime, tz.local);
 
@@ -88,7 +94,7 @@ class NotificationService {
     );
 
     const platformDetails =
-    NotificationDetails(android: androidDetails, iOS: iosDetails);
+        NotificationDetails(android: androidDetails, iOS: iosDetails);
 
     if (tzScheduled.isBefore(now)) {
       await _notifications.show(id, title, body, platformDetails);
@@ -100,11 +106,11 @@ class NotificationService {
         body,
         tzScheduled,
         platformDetails,
-        androidAllowWhileIdle: true,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
-        UILocalNotificationDateInterpretation.absoluteTime,
+            UILocalNotificationDateInterpretation.absoluteTime,
       );
-      print('⏰ Notification scheduled for: $tzScheduled');
+      print('⏰ Notification scheduled for: $tzScheduled (Local Zone Target)');
     }
   }
 
