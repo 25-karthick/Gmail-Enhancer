@@ -3,6 +3,7 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:gmail_enhancer_final/config/env.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -46,26 +47,26 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCeRARzttaeky-4hN9syUm06rLC0OsMqoM',
-    appId: '1:1027541737617:web:932a7f5e452d288584df30',
+  static FirebaseOptions get web => FirebaseOptions(
+    apiKey: Env.firebaseWebApi,
+    appId: Env.firebaseWebAppId,
     messagingSenderId: '1027541737617',
     projectId: 'gemini-5fa54',
     authDomain: 'gemini-5fa54.firebaseapp.com',
     storageBucket: 'gemini-5fa54.firebasestorage.app',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBfBkrAcGPYAW-It0Df2HRxrlahH2eBelE',
-    appId: '1:1027541737617:android:830943e28cf4070084df30',
+  static FirebaseOptions get android => FirebaseOptions(
+    apiKey: Env.firebaseAndroidApi,
+    appId: Env.firebaseAndroidAppId,
     messagingSenderId: '1027541737617',
     projectId: 'gemini-5fa54',
     storageBucket: 'gemini-5fa54.firebasestorage.app',
   );
 
-  static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCeRARzttaeky-4hN9syUm06rLC0OsMqoM',
-    appId: '1:1027541737617:web:f6682d67c13bd01b84df30',
+  static FirebaseOptions get windows => FirebaseOptions(
+    apiKey: Env.firebaseWindowsApi,
+    appId: Env.firebaseWindowsAppId,
     messagingSenderId: '1027541737617',
     projectId: 'gemini-5fa54',
     authDomain: 'gemini-5fa54.firebaseapp.com',

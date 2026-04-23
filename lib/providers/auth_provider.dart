@@ -13,13 +13,14 @@ class AuthProvider with ChangeNotifier {
   String? get error => _error;
 
   AuthProvider() {
-    // Listen for changes in Firebase authentication state
+    // 🔥 Listen to Firebase Auth State changes
     _authService.authStateChanges.listen((User? user) {
       _user = user;
       notifyListeners();
     });
   }
 
+  /// 🔹 Sign in with Google
   Future<bool> signIn() async {
     _isLoading = true;
     _error = null;
@@ -38,12 +39,19 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  /// 🔸 Logout user
   Future<void> signOut() async {
-    await _authService.signOut();
-    _user = null;
-    notifyListeners();
+    try {
+      await _authService.signOut(); // ensures Google + Firebase logout
+      _user = null;
+      notifyListeners();
+    } catch (e) {
+      _error = "Sign out failed: $e";
+      notifyListeners();
+    }
   }
 
+  /// Clear error message from UI
   void clearError() {
     _error = null;
     notifyListeners();

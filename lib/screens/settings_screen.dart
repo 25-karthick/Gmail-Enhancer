@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import 'login_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
-  /// Shows a confirmation dialog before signing out.
   Future<void> _confirmSignOut(BuildContext context) async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
 
@@ -20,7 +20,7 @@ class SettingsScreen extends StatelessWidget {
             TextButton(
               child: const Text('Cancel'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(false); // Return false
+                Navigator.of(dialogContext).pop(false);
               },
             ),
             TextButton(
@@ -29,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               child: const Text('Log Out'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(true); // Return true
+                Navigator.of(dialogContext).pop(true);
               },
             ),
           ],
@@ -37,16 +37,22 @@ class SettingsScreen extends StatelessWidget {
       },
     );
 
-    // If user confirmed (dialog returned true), proceed with sign out
-    // The AuthProvider's listener will handle navigating to the LoginScreen
     if (didRequestSignOut == true && context.mounted) {
       await authProvider.signOut();
+
+      // ✅ Redirect to LoginScreen and clear navigation stack
+      if (context.mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
+              (route) => false,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // We use a Consumer here so the UI updates if the user data ever changes
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
         final User? user = authProvider.user;
@@ -57,8 +63,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           body: ListView(
             children: [
-              if (user != null)
-                _buildUserProfile(user),
+              if (user != null) _buildUserProfile(user),
               const Divider(),
               ListTile(
                 leading: const Icon(Icons.logout, color: Colors.red),
@@ -66,19 +71,8 @@ class SettingsScreen extends StatelessWidget {
                   'Log Out',
                   style: TextStyle(color: Colors.red),
                 ),
-                onTap: () {
-                  _confirmSignOut(context);
-                },
+                onTap: () => _confirmSignOut(context),
               ),
-              // You can add other settings ListTiles here
-              // e.g.,
-              // ListTile(
-              //   leading: const Icon(Icons.notifications_none),
-              //   title: const Text('Notifications'),
-              //   onTap: () {
-              //     // Navigate to notification settings
-              //   },
-              // ),
             ],
           ),
         );
@@ -86,7 +80,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  /// A helper widget to display the user's profile info
   Widget _buildUserProfile(User user) {
     return Padding(
       padding: const EdgeInsets.all(20.0),
@@ -99,11 +92,9 @@ class SettingsScreen extends StatelessWidget {
                 : null,
             child: user.photoURL == null
                 ? Text(
-              user.displayName?.isNotEmpty == true
+              (user.displayName?.isNotEmpty == true
                   ? user.displayName![0].toUpperCase()
-                  : (user.email?.isNotEmpty == true
-                  ? user.email![0].toUpperCase()
-                  : 'U'),
+                  : user.email![0].toUpperCase()),
               style: const TextStyle(fontSize: 24),
             )
                 : null,
