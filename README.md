@@ -1,6 +1,6 @@
 # gmail_enhancer_final
 
-A Flutter project.
+An Android project.
 
 ## Getting Started
 
